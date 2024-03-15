@@ -26,7 +26,6 @@ def get_locale() -> str:
     """
     return request.accept_languages.best_match(config.LANGUAGES)
 
-    
 @app.route('/')
 def get_index() -> str:
     """The home/index page.
@@ -36,3 +35,4 @@ def get_index() -> str:
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
