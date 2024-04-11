@@ -1,36 +1,35 @@
--- Compute and store the average weighted score for all students
-DELIMITER //
-DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUser;
+-- Creates a stored procedure ComputeAverageWeightedScoreForUsers that
+-- computes and store the average weighted score for all students.
 DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUsers;
-CREATE PROCEDURE ComputeAverageWeightedScoreForUser (
-       IN user_id INT
-)
-BEGIN
-
-UPDATE users
-SET average_score = (SELECT SUM(score * weight) / (SELECT SUM(weight))
-FROM projects
-INNER JOIN corrections
-WHERE projects.id = corrections.project_id
-AND corrections.user_id = user_id)
-WHERE users.id = user_id;
-
-END;//
-
+DELIMITER $$
 CREATE PROCEDURE ComputeAverageWeightedScoreForUsers ()
 BEGIN
+    ALTER TABLE users ADD total_weighted_score INT NOT NULL;
+    ALTER TABLE users ADD total_weight INT NOT NULL;
 
-DECLARE done BOOLEAN DEFAULT 0;
-DECLARE user_id INT;
-DECLARE all_users CURSOR FOR SELECT id FROM users;
-DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1;
+    UPDATE users
+        SET total_weighted_score = (
+            SELECT SUM(corrections.score * projects.weight)
+            FROM corrections
+                INNER JOIN projects
+                    ON corrections.project_id = projects.id
+            WHERE corrections.user_id = users.id
+            );
 
-OPEN all_users;
-REPEAT
-  FETCH all_users INTO user_id;
-  CALL ComputeAverageWeightedScoreForUser(user_id);
-UNTIL done END REPEAT;
-CLOSE all_users;
+    UPDATE users
+        SET total_weight = (
+            SELECT SUM(projects.weight)
+                FROM corrections
+                    INNER JOIN projects
+                        ON corrections.project_id = projects.id
+                WHERE corrections.user_id = users.id
+            );
 
-END;//
+    UPDATE users
+        SET users.average_score = IF(users.total_weight = 0, 0, users.total_weighted_score / users.total_weight);
+    ALTER TABLE users
+        DROP COLUMN total_weighted_score;
+    ALTER TABLE users
+        DROP COLUMN total_weight;
+END $$
 DELIMITER ;
