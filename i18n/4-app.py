@@ -35,9 +35,16 @@ app.config.from_object(Config)
 def get_locale():
     """
     Determine the best match with supported languages
-    based on request.accept_languages.
+    based on request.accept_languages,
     """
-    return request.accept_languages.best_match(Config.LANGUAGES)
+    # Check if the 'locale' parameter is present in the URL
+    # and if its value is a supported locale
+    if 'locale' in request.args and \
+            request.args['locale'] in app.config['LANGUAGES']:
+        return request.args['locale']
+    else:
+        # Resort to the default behavior
+        return request.accept_languages.best_match(app.config['LANGUAGES'])
 
 
 @app.route('/')
@@ -45,7 +52,7 @@ def index():
     """
     Render the index template.
     """
-    return render_template('3-index.html')
+    return render_template('4-index.html')
 
 
 if __name__ == '__main__':

@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
+
 """
-Flask app
+This is a basic Flask application that returns
+"Hello world" when accessing the root URL ('/').
 """
+
+# import flask module
 from flask import Flask, render_template
 
 
 app = Flask(__name__)
-app.url_map.strict_slashes = False
 
 
-@app.route('/', methods=['GET'])
-def hello():
-    """ GET /
-    Return:
-      - Render template
+# Define a route for the root URL ('/')
+
+
+@app.route('/')
+def index() -> str:
+    """The home/index page.
     """
     return render_template('0-index.html')
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port="5000")
+"""run the flask app"""
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
