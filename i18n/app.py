@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
-"""A Basic Flask app with internationalization support.
 """
-import pytz
-from typing import Union, Dict
-from flask_babel import Babel, format_datetime
+Flask app
+"""
 from flask import Flask, render_template, request, g
+from flask_babel import Babel
+import pytz
+from datetime import datetime
+from babel.dates import format_datetime
 
 
 class Config:
-    """Represents a Flask Babel configuration.
     """
-    LANGUAGES = ["en", "fr"]
-    BABEL_DEFAULT_LOCALE = "en"
-    BABEL_DEFAULT_TIMEZONE = "UTC"
+    Config class
+    """
+    LANGUAGES = ['en', 'fr']
 
 
 app = Flask(__name__)
-app.config.from_object(Config)
 app.url_map.strict_slashes = False
+app.config.from_object(Config)
+
 babel = Babel(app)
+Babel.default_locale = 'en'
+Babel.default_timezone = 'UTC'
+
 users = {
     1: {"name": "Balou", "locale": "fr", "timezone": "Europe/Paris"},
     2: {"name": "Beyonce", "locale": "en", "timezone": "US/Central"},
@@ -27,64 +32,71 @@ users = {
 }
 
 
-def get_user() -> Union[Dict, None]:
-    """Retrieves a user based on a user id.
+@app.route('/', methods=['GET'])
+def hello():
+    """ GET /
+    Return:
+      - Render template
     """
-    login_id = request.args.get('login_as', '')
-    if login_id:
-        return users.get(int(login_id), None)
-    return None
-
-
-@app.before_request
-def before_request() -> None:
-    """Performs some routines before each request's resolution.
-    """
-    user = get_user()
-    g.user = user
+    time = format_datetime(datetime.now(get_timezone()), locale=get_locale())
+    return render_template('index.html', user=g.user, current_time=time)
 
 
 @babel.localeselector
-def get_locale() -> str:
-    """Retrieves the locale for a web page.
+def get_locale():
     """
-    queries = request.query_string.decode('utf-8').split('&')
-    query_table = dict(map(
-        lambda x: (x if '=' in x else '{}='.format(x)).split('='),
-        queries,
-    ))
-    locale = query_table.get('locale', '')
-    if locale in app.config["LANGUAGES"]:
+    Get locale from request
+    """
+    locale = request.args.get('locale')
+    if locale in Config.LANGUAGES:
         return locale
-    user_details = getattr(g, 'user', None)
-    if user_details and user_details['locale'] in app.config["LANGUAGES"]:
-        return user_details['locale']
-    header_locale = request.headers.get('locale', '')
-    if header_locale in app.config["LANGUAGES"]:
-        return header_locale
-    return app.config['BABEL_DEFAULT_LOCALE']
+    user = request.args.get('login_as')
+    if user:
+        locale = get_user(user).get('locale')
+        if locale in Config.LANGUAGES:
+            return locale
+    header = request.headers.get('locale')
+    if header:
+        return header
+    return request.accept_languages.best_match(Config.LANGUAGES)
 
 
 @babel.timezoneselector
-def get_timezone() -> str:
-    """Retrieves the timezone for a web page.
+def get_timezone():
     """
-    timezone = request.args.get('timezone', '').strip()
-    if not timezone and g.user:
-        timezone = g.user['timezone']
-    try:
-        return pytz.timezone(timezone).zone
-    except pytz.exceptions.UnknownTimeZoneError:
-        return app.config['BABEL_DEFAULT_TIMEZONE']
-
-
-@app.route('/')
-def get_index() -> str:
-    """The home/index page.
+    Get timezone from request
     """
-    g.time = format_datetime()
-    return render_template('index.html')
+    timezone = request.args.get('timezone')
+    if timezone:
+        try:
+            return pytz.timezone(timezone)
+        except pytz.exceptions.UnknownTimeZoneError:
+            pass
+    if g.user:
+        timezone = g.user.get('timezone')
+        if timezone:
+            try:
+                return pytz.timezone(timezone)
+            except pytz.exceptions.UnknownTimeZoneError:
+                pass
+    return pytz.timezone('utc')
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+def get_user(user):
+    """
+    Get user from request
+    """
+    if user and int(user) in users:
+        return users.get(int(user))
+
+
+@app.before_request
+def before_request():
+    """
+    Get user, if any
+    """
+    g.user = get_user(request.args.get('login_as'))
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port="5000")
